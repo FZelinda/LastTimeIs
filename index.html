@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LastTimeIs - 极简事件记录，告别打卡焦虑</title>
+    <meta name="description" content="我上次做这件事是什么时候？极简事件记录应用，告别打卡焦虑，本地存储保护隐私。">
+    <meta name="keywords" content="习惯追踪,事件记录,打卡,时间管理,戒除习惯,iOS应用">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #5856D6;
+            --primary-light: #7B79EB;
+            --secondary: #007AFF;
+            --accent-green: #34C759;
+            --accent-orange: #FF9500;
+            --accent-red: #FF3B30;
+            --bg-light: #F2F2F7;
+            --bg-white: #FFFFFF;
+            --text-dark: #1C1C1E;
+            --text-gray: #8E8E93;
+            --text-light: #FFFFFF;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.16);
+            --radius-sm: 12px;
+            --radius-md: 16px;
+            --radius-lg: 24px;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: linear-gradient(180deg, var(--bg-light) 0%, var(--bg-white) 100%);
+            min-height: 100vh;
+        }
+
+        /* 语言切换器 */
+        .lang-switcher {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 8px;
+            background: var(--bg-white);
+            padding: 6px;
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .lang-switcher button {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: var(--text-gray);
+        }
+
+        .lang-switcher button.active {
+            background: var(--primary);
+            color: var(--text-light);
+        }
+
+        .lang-switcher button:hover:not(.active) {
+            background: var(--bg-light);
+        }
+
+        /* 内容显示控制 */
+        [lang="zh"] { display: block; }
+        [lang="en"] { display: none; }
+
+        body.lang-en [lang="zh"] { display: none; }
+        body.lang-en [lang="en"] { display: block; }
+
+        /* 确保 hero section 保持 flex 布局 */
+        body.lang-en .hero[lang="en"] { display: flex; }
+        body:not(.lang-en) .hero[lang="zh"] { display: flex; }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 100px 20px 60px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 30%, rgba(88, 86, 214, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 70%, rgba(0, 122, 255, 0.1) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(-2%, 2%) rotate(5deg); }
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+        }
+
+        .app-icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .hero h1 {
+            font-size: clamp(36px, 8vw, 64px);
+            font-weight: 700;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero .tagline {
+            font-size: clamp(18px, 4vw, 24px);
+            color: var(--text-gray);
+            margin-bottom: 15px;
+        }
+
+        .hero .subtitle {
+            font-size: clamp(14px, 3vw, 18px);
+            color: var(--text-gray);
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero .question {
+            font-size: clamp(20px, 5vw, 28px);
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--text-light);
+            text-decoration: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 18px;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 80px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: clamp(28px, 5vw, 40px);
+            font-weight: 700;
+            margin-bottom: 60px;
+            color: var(--text-dark);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--bg-white);
+            padding: 32px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        .feature-icon.purple { background: rgba(88, 86, 214, 0.15); }
+        .feature-icon.green { background: rgba(52, 199, 89, 0.15); }
+        .feature-icon.orange { background: rgba(255, 149, 0, 0.15); }
+        .feature-icon.red { background: rgba(255, 59, 48, 0.15); }
+        .feature-icon.blue { background: rgba(0, 122, 255, 0.15); }
+
+        .feature-card h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            color: var(--text-gray);
+            font-size: 15px;
+        }
+
+        /* Types Section */
+        .types-section {
+            padding: 80px 20px;
+            background: linear-gradient(180deg, var(--bg-light) 0%, var(--bg-white) 100%);
+        }
+
+        .types-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+        }
+
+        .type-card {
+            background: var(--bg-white);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            text-align: center;
+            box-shadow: var(--shadow-md);
+        }
+
+        .type-card.do {
+            border-top: 4px solid var(--accent-green);
+        }
+
+        .type-card.avoid {
+            border-top: 4px solid var(--accent-red);
+        }
+
+        .type-card .type-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .type-card h3 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .type-card .type-desc {
+            color: var(--text-gray);
+            margin-bottom: 20px;
+        }
+
+        .type-card .type-examples {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .type-example {
+            padding: 6px 14px;
+            background: var(--bg-light);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-gray);
+        }
+
+        /* Privacy Section */
+        .privacy-section {
+            padding: 80px 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .privacy-content {
+            background: var(--bg-white);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .privacy-content h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--bg-light);
+        }
+
+        .privacy-content h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 30px 0 16px;
+        }
+
+        .privacy-content p, .privacy-content ul {
+            color: var(--text-gray);
+            margin-bottom: 16px;
+        }
+
+        .privacy-content ul {
+            padding-left: 24px;
+        }
+
+        .privacy-content li {
+            margin-bottom: 8px;
+        }
+
+        .privacy-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: rgba(52, 199, 89, 0.15);
+            color: var(--accent-green);
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        /* Support Section */
+        .support-section {
+            padding: 80px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--text-light);
+            text-align: center;
+        }
+
+        .support-section h2 {
+            font-size: clamp(28px, 5vw, 40px);
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .support-section p {
+            font-size: 18px;
+            opacity: 0.9;
+            margin-bottom: 30px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .contact-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 32px;
+            background: var(--bg-white);
+            color: var(--primary);
+            text-decoration: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+
+        .contact-link:hover {
+            transform: scale(1.05);
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-gray);
+            font-size: 14px;
+        }
+
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Scroll indicator */
+        .scroll-indicator {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: bounce 2s infinite;
+        }
+
+        .scroll-indicator span {
+            display: block;
+            width: 24px;
+            height: 24px;
+            border-right: 3px solid var(--primary);
+            border-bottom: 3px solid var(--primary);
+            transform: rotate(45deg);
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+            40% { transform: translateX(-50%) translateY(-10px); }
+            60% { transform: translateX(-50%) translateY(-5px); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .lang-switcher {
+                top: 10px;
+                right: 10px;
+            }
+
+            .hero {
+                padding-top: 80px;
+            }
+
+            .feature-card, .type-card {
+                padding: 24px;
+            }
+
+            .privacy-content {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 语言切换 -->
+    <nav class="lang-switcher">
+        <button onclick="setLanguage('zh')" id="btn-zh">中文</button>
+        <button onclick="setLanguage('en')" id="btn-en">EN</button>
+    </nav>
+
+    <!-- Hero Section - 中文 -->
+    <section class="hero" lang="zh">
+        <div class="hero-content">
+            <div class="app-icon">📅</div>
+            <h1>LastTimeIs</h1>
+            <p class="tagline">极简事件记录，告别打卡焦虑</p>
+            <p class="question">我上次做这件事是什么时候？</p>
+            <p class="subtitle">一眼看清哪些事该做了，哪些事已经坚持了很久</p>
+            <a href="https://apps.apple.com/app/id6738230276" class="cta-button">
+                <svg width="20" height="24" viewBox="0 0 20 24" fill="currentColor">
+                    <path d="M16.5 3.5C16.5 1.57 14.93 0 13 0H7C5.07 0 3.5 1.57 3.5 3.5V6H2C.9 6 0 6.9 0 8v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-1.5V3.5zm-8 0C8.5 2.67 9.17 2 10 2s1.5.67 1.5 1.5V6h-3V3.5zm3 11.5h-1v1c0 .55-.45 1-1 1s-1-.45-1-1v-1h-1c-.55 0-1-.45-1-1s.45-1 1-1h1v-1c0-.55.45-1 1-1s1 .45 1 1v1h1c.55 0 1 .45 1 1s-.45 1-1 1z"/>
+                </svg>
+                App Store 下载
+            </a>
+        </div>
+        <div class="scroll-indicator">
+            <span></span>
+        </div>
+    </section>
+
+    <!-- Hero Section - English -->
+    <section class="hero" lang="en">
+        <div class="hero-content">
+            <div class="app-icon">📅</div>
+            <h1>LastTimeIs</h1>
+            <p class="tagline">Simple Tracking, Zero Stress</p>
+            <p class="question">When was the last time I did this?</p>
+            <p class="subtitle">See at a glance what needs to be done and how long you've stuck with it</p>
+            <a href="https://apps.apple.com/app/id6738230276" class="cta-button">
+                <svg width="20" height="24" viewBox="0 0 20 24" fill="currentColor">
+                    <path d="M16.5 3.5C16.5 1.57 14.93 0 13 0H7C5.07 0 3.5 1.57 3.5 3.5V6H2C.9 6 0 6.9 0 8v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-1.5V3.5zm-8 0C8.5 2.67 9.17 2 10 2s1.5.67 1.5 1.5V6h-3V3.5zm3 11.5h-1v1c0 .55-.45 1-1 1s-1-.45-1-1v-1h-1c-.55 0-1-.45-1-1s.45-1 1-1h1v-1c0-.55.45-1 1-1s1 .45 1 1v1h1c.55 0 1 .45 1 1s-.45 1-1 1z"/>
+                </svg>
+                Download on App Store
+            </a>
+        </div>
+        <div class="scroll-indicator">
+            <span></span>
+        </div>
+    </section>
+
+    <!-- Features Section - 中文 -->
+    <section class="features" lang="zh">
+        <h2 class="section-title">核心特性</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon purple">⚡</div>
+                <h3>一键记录</h3>
+                <p>从主列表完成一次记录只需两步，无需进入繁琐的详情页</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon green">🔒</div>
+                <h3>本地优先</h3>
+                <p>所有数据存储在设备本地，无需注册登录，不上传任何信息</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon orange">😌</div>
+                <h3>无打卡焦虑</h3>
+                <p>不展示连续打卡天数，断档后可重新开始，宽容的失败态度</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon red">📊</div>
+                <h3>可视化统计</h3>
+                <p>热力图展示你的行为模式，了解自己的坚持和进步</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon blue">🎨</div>
+                <h3>个性化定制</h3>
+                <p>自定义图标、颜色和按钮样式，打造属于你的记录方式</p>
+            </div>
+            <div class="feature-card purple">
+                <div class="feature-icon">↩️</div>
+                <h3>可回溯纠错</h3>
+                <p>支持补录历史记录、编辑误操作，记录后5秒内可撤销</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section - English -->
+    <section class="features" lang="en">
+        <h2 class="section-title">Key Features</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon purple">⚡</div>
+                <h3>Quick Logging</h3>
+                <p>Log any event in just two taps from the main list, no complicated forms</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon green">🔒</div>
+                <h3>Local First</h3>
+                <p>All data stored locally on your device, no sign-up required, nothing uploaded</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon orange">😌</div>
+                <h3>No Streak Stress</h3>
+                <p>No streak pressure displayed. Start over after a break with a guilt-free approach</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon red">📊</div>
+                <h3>Visual Insights</h3>
+                <p>Heatmap shows your behavior patterns, track your progress at a glance</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon blue">🎨</div>
+                <h3>Personalize It</h3>
+                <p>Custom icons, colors, and button styles to make tracking truly yours</p>
+            </div>
+            <div class="feature-card purple">
+                <div class="feature-icon">↩️</div>
+                <h3>Flexible Editing</h3>
+                <p>Backdate entries, edit mistakes, and undo within 5 seconds after logging</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Types Section - 中文 -->
+    <section class="types-section" lang="zh">
+        <h2 class="section-title">两种事件类型</h2>
+        <div class="types-container">
+            <div class="type-card do">
+                <div class="type-icon">✅</div>
+                <h3>要做类</h3>
+                <p class="type-desc">记录需要完成的任务，一眼看出"多久没做了"</p>
+                <div class="type-examples">
+                    <span class="type-example">每周运动</span>
+                    <span class="type-example">定期体检</span>
+                    <span class="type-example">给父母打电话</span>
+                    <span class="type-example">车辆保养</span>
+                </div>
+            </div>
+            <div class="type-card avoid">
+                <div class="type-icon">🚫</div>
+                <h3>避免类</h3>
+                <p class="type-desc">记录想要戒除的习惯，显示"已坚持多久"</p>
+                <div class="type-examples">
+                    <span class="type-example">戒烟</span>
+                    <span class="type-example">戒糖</span>
+                    <span class="type-example">少熬夜</span>
+                    <span class="type-example">控制零食</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Types Section - English -->
+    <section class="types-section" lang="en">
+        <h2 class="section-title">Two Event Types</h2>
+        <div class="types-container">
+            <div class="type-card do">
+                <div class="type-icon">✅</div>
+                <h3>To-Do Type</h3>
+                <p class="type-desc">Track tasks you need to complete, see how long it's been</p>
+                <div class="type-examples">
+                    <span class="type-example">Weekly Exercise</span>
+                    <span class="type-example">Health Checkup</span>
+                    <span class="type-example">Call Parents</span>
+                    <span class="type-example">Car Maintenance</span>
+                </div>
+            </div>
+            <div class="type-card avoid">
+                <div class="type-icon">🚫</div>
+                <h3>Avoid Type</h3>
+                <p class="type-desc">Track habits you want to quit, see how long you've stuck with it</p>
+                <div class="type-examples">
+                    <span class="type-example">Quit Smoking</span>
+                    <span class="type-example">No Sugar</span>
+                    <span class="type-example">Sleep Earlier</span>
+                    <span class="type-example">Less Snacking</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Privacy Section - 中文 -->
+    <section class="privacy-section" lang="zh">
+        <div class="privacy-content">
+            <div class="privacy-badge">🔒 零数据收集 · 100% 隐私保护</div>
+            <h2>隐私政策</h2>
+            <p><strong>生效日期：</strong>2025年1月18日</p>
+
+            <h3>数据收集</h3>
+            <p>我们承诺<strong>不收集</strong>任何用户数据，包括但不限于：</p>
+            <ul>
+                <li>个人身份信息（姓名、邮箱、电话等）</li>
+                <li>设备识别码（IDFA、设备型号等）</li>
+                <li>使用行为数据（点击、浏览等）</li>
+                <li>位置信息</li>
+                <li>使用统计分析</li>
+            </ul>
+
+            <h3>数据存储</h3>
+            <p>应用的所有数据均存储在您的设备本地，使用 iOS SwiftData 框架管理。存储的数据包括：</p>
+            <ul>
+                <li>事件记录（名称、类型、图标、颜色）</li>
+                <li>日志记录（时间、备注、照片）</li>
+                <li>分类设置</li>
+                <li>应用偏好设置</li>
+            </ul>
+            <p>您随时可以通过应用内的"导出数据"功能导出备份，或使用"清空数据"功能删除所有本地数据。</p>
+
+            <h3>权限说明</h3>
+            <p>应用仅在您主动使用以下功能时才会请求相应权限：</p>
+            <ul>
+                <li><strong>相册访问权限</strong>：仅在选择已有照片作为记录附件时请求</li>
+                <li><strong>相机访问权限</strong>：仅在拍摄新照片作为记录附件时请求</li>
+            </ul>
+            <p>所有权限均由您完全控制，应用不会在后台访问相册或相机。</p>
+
+            <h3>第三方服务</h3>
+            <p>本应用不集成任何第三方 SDK，包括但不限于：</p>
+            <ul>
+                <li>数据分析工具（如 Google Analytics、Firebase）</li>
+                <li>广告网络</li>
+                <li>社交分享 SDK</li>
+                <li>推送通知服务</li>
+            </ul>
+
+            <h3>儿童隐私</h3>
+            <p>本应用不针对13岁以下儿童设计，也不会故意收集儿童的个人信息。由于我们不收集任何数据，因此不存在与儿童相关的隐私风险。</p>
+
+            <h3>隐私政策变更</h3>
+            <p>如果我们更新隐私政策，将在应用内和新版本文案中说明。重大变更将通过应用更新通知的方式告知用户。</p>
+
+            <h3>联系我们</h3>
+            <p>如果您对隐私政策有任何疑问，请通过以下方式联系我们：</p>
+            <p><strong>邮箱：</strong><a href="mailto:391566823@qq.com">391566823@qq.com</a></p>
+        </div>
+    </section>
+
+    <!-- Privacy Section - English -->
+    <section class="privacy-section" lang="en">
+        <div class="privacy-content">
+            <div class="privacy-badge">🔒 Zero Data Collection · 100% Privacy</div>
+            <h2>Privacy Policy</h2>
+            <p><strong>Effective Date:</strong> January 18, 2025</p>
+
+            <h3>Data Collection</h3>
+            <p>We commit to <strong>not collecting</strong> any user data, including but not limited to:</p>
+            <ul>
+                <li>Personal identity information (name, email, phone, etc.)</li>
+                <li>Device identifiers (IDFA, device model, etc.)</li>
+                <li>Usage behavior data (taps, views, etc.)</li>
+                <li>Location information</li>
+                <li>Usage analytics and statistics</li>
+            </ul>
+
+            <h3>Data Storage</h3>
+            <p>All app data is stored locally on your device using the iOS SwiftData framework. Stored data includes:</p>
+            <ul>
+                <li>Event records (name, type, icon, color)</li>
+                <li>Log entries (timestamp, notes, photos)</li>
+                <li>Category settings</li>
+                <li>App preferences</li>
+            </ul>
+            <p>You can export a backup at any time using the "Export Data" feature, or delete all local data using the "Clear Data" feature.</p>
+
+            <h3>Permissions</h3>
+            <p>The app only requests permissions when you actively use the following features:</p>
+            <ul>
+                <li><strong>Photo Library Access:</strong> Only when selecting an existing photo as a log attachment</li>
+                <li><strong>Camera Access:</strong> Only when taking a new photo as a log attachment</li>
+            </ul>
+            <p>All permissions are fully under your control. The app will not access the photo library or camera in the background.</p>
+
+            <h3>Third-Party Services</h3>
+            <p>This app does not integrate any third-party SDKs, including but not limited to:</p>
+            <ul>
+                <li>Analytics tools (such as Google Analytics, Firebase)</li>
+                <li>Advertising networks</li>
+                <li>Social sharing SDKs</li>
+                <li>Push notification services</li>
+            </ul>
+
+            <h3>Children's Privacy</h3>
+            <p>This app is not designed for children under 13 and does not knowingly collect any personal information from children. Since we collect no data, there are no privacy risks related to children.</p>
+
+            <h3>Changes to Privacy Policy</h3>
+            <p>If we update our privacy policy, we will note the changes within the app and in new version descriptions. Significant changes will be communicated through app update notifications.</p>
+
+            <h3>Contact Us</h3>
+            <p>If you have any questions about our privacy policy, please contact us:</p>
+            <p><strong>Email:</strong> <a href="mailto:391566823@qq.com">391566823@qq.com</a></p>
+        </div>
+    </section>
+
+    <!-- Support Section - 中文 -->
+    <section class="support-section" lang="zh">
+        <h2>需要帮助？</h2>
+        <p>如有任何问题、建议或反馈，请随时与我们联系</p>
+        <a href="mailto:391566823@qq.com" class="contact-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            391566823@qq.com
+        </a>
+    </section>
+
+    <!-- Support Section - English -->
+    <section class="support-section" lang="en">
+        <h2>Need Help?</h2>
+        <p>If you have any questions, suggestions, or feedback, please feel free to contact us</p>
+        <a href="mailto:391566823@qq.com" class="contact-link">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            391566823@qq.com
+        </a>
+    </section>
+
+    <!-- Footer - 中文 -->
+    <footer lang="zh">
+        <p>&copy; 2025 LastTimeIs. All rights reserved.</p>
+        <p>Made with ❤️ for habit trackers everywhere</p>
+    </footer>
+
+    <!-- Footer - English -->
+    <footer lang="en">
+        <p>&copy; 2025 LastTimeIs. All rights reserved.</p>
+        <p>Made with ❤️ for habit trackers everywhere</p>
+    </footer>
+
+    <script>
+        function setLanguage(lang) {
+            document.body.className = lang === 'en' ? 'lang-en' : '';
+            document.getElementById('btn-zh').className = lang === 'zh' ? 'active' : '';
+            document.getElementById('btn-en').className = lang === 'en' ? 'active' : '';
+            localStorage.setItem('lastTimeIs-lang', lang);
+        }
+
+        // 获取浏览器语言，中文环境返回 'zh'，否则返回 'en'
+        function getBrowserLanguage() {
+            const lang = navigator.language || navigator.userLanguage;
+            return lang.startsWith('zh') ? 'zh' : 'en';
+        }
+
+        // 加载保存的语言设置，否则根据浏览器语言自动选择
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedLang = localStorage.getItem('lastTimeIs-lang') || getBrowserLanguage();
+            setLanguage(savedLang);
+        });
+    </script>
+</body>
+</html>
