@@ -104,6 +104,18 @@
             overflow: hidden;
         }
 
+        /* ——语言显示控制：请放在 .hero 之后—— */
+        section[lang="zh"] { display: block; }
+        section[lang="en"] { display: none; }
+
+        body.lang-en section[lang="zh"] { display: none; }
+        body.lang-en section[lang="en"] { display: block; }
+
+        /* 仅 Hero 要保持 flex：单独指定 */
+        body.lang-en .hero[lang="en"] { display: flex; }
+        body:not(.lang-en) .hero[lang="zh"] { display: flex; }
+        body:not(.lang-en) .hero[lang="en"] { display: none; } /* 这句是关键补刀 */
+
         .hero::before {
             content: '';
             position: absolute;
